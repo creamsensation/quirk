@@ -147,10 +147,20 @@ func (q *Quirk) scanSingle(rows *sql.Rows, columns []string, result any) {
 				rowData[i] = field.Interface()
 			}
 		case reflect.Struct:
+			visibleFields := reflect.VisibleFields(rv.Elem().Type())
 			model := make(map[string]any)
 			for i := 0; i < rv.Elem().NumField(); i++ {
 				field := rv.Elem().Field(i)
 				fieldName := rv.Elem().Type().Field(i).Name
+				exported := false
+				for _, vf := range visibleFields {
+					if vf.Name == fieldName && vf.IsExported() {
+						exported = true
+					}
+				}
+				if !exported {
+					continue
+				}
 				switch field.Type().Kind() {
 				case reflect.Slice:
 					model[strcase.ToSnake(fieldName)] = pg.Array(field.Addr().Interface())

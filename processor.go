@@ -76,15 +76,15 @@ func processQueryParts(q *Quirk) (string, []any, error) {
 
 func processPart(q string, args ...any) (string, []any, error) {
 	resultArgs := make([]any, 0)
-	PlaceholdersIndexes := getSubstringIndexes(q, Placeholder)
-	if len(PlaceholdersIndexes) != len(args) {
+	placeholdersIndexes := getSubstringIndexes(q, Placeholder)
+	if len(placeholdersIndexes) != len(args) {
 		return q, resultArgs, errors.New("placeholders and args count mismatch")
 	}
 	for i, arg := range args {
 		switch a := arg.(type) {
 		case Safe:
 			q = replaceStringAtIndex(
-				q, Placeholder, fmt.Sprintf("%v", a.Value), PlaceholdersIndexes[i],
+				q, Placeholder, fmt.Sprintf("%v", a.Value), placeholdersIndexes[i],
 			)
 			continue
 		}

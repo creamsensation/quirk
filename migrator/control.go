@@ -1,6 +1,6 @@
 package migrator
 
-import "quirk"
+import "github.com/creamsensation/quirk"
 
 type Control interface {
 	DB(name ...string) *quirk.Quirk

@@ -7,7 +7,7 @@ import (
 	"slices"
 	"time"
 	
-	"quirk"
+	"github.com/creamsensation/quirk"
 )
 
 type Migrator interface {
