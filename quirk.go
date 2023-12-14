@@ -97,6 +97,9 @@ func (q *Quirk) exec(result ...any) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		_ = rows.Close()
+	}()
 	if len(result) == 0 {
 		q.afterQuery(t, mergedQueryParts, args)
 		return nil

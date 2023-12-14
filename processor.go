@@ -108,13 +108,14 @@ func processPart(q string, args ...any) (string, []any, error) {
 func processNamedParamsMap(query string, mapArgRef reflect.Value) (string, []any) {
 	args := make([]any, 0)
 	params := make([]mapParam, 0)
+	originQuery := query
 	for _, key := range mapArgRef.MapKeys() {
 		value := mapArgRef.MapIndex(key)
 		param := ParamPrefix + strcase.ToSnake(key.String())
 		if !strings.Contains(query, param) {
 			continue
 		}
-		params = append(params, mapParam{index: strings.Index(query, param), value: value.Interface()})
+		params = append(params, mapParam{index: strings.Index(originQuery, param), value: value.Interface()})
 		query = strings.Replace(query, param, Placeholder, -1)
 	}
 	slices.SortFunc(
