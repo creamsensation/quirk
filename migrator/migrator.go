@@ -26,13 +26,12 @@ type migrator struct {
 
 const (
 	migrationsTable string = "quirk_migrations"
-	migrationsAlias string = "quirk"
 )
 
 const (
 	migrationFileContent = `package main
 
-import "quirk/migrator"
+import "github.com/creamsensation/quirk/migrator"
 
 func init() {
 	manager.Add().
