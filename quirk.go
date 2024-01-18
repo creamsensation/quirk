@@ -2,6 +2,7 @@ package quirk
 
 import (
 	"database/sql"
+	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
@@ -33,6 +34,10 @@ const (
 	querySuffix = ";"
 )
 
+var (
+	whereFinder = regexp.MustCompile(`\bwhere\b`)
+)
+
 func New(db *DB) *Quirk {
 	q := &Quirk{
 		DB:            db,
@@ -45,6 +50,15 @@ func New(db *DB) *Quirk {
 func (q *Quirk) Q(query string, args ...any) *Quirk {
 	q.parts = append(q.parts, queryPart{query, args})
 	return q
+}
+
+func (q *Quirk) WhereExists() bool {
+	for _, p := range q.parts {
+		if whereFinder.MatchString(strings.ToLower(p.query)) {
+			return true
+		}
+	}
+	return false
 }
 
 func (q *Quirk) If(condition bool, query string, args ...any) *Quirk {
@@ -219,4 +233,8 @@ func (q *Quirk) scanMultiple(rows *sql.Rows, result ...any) {
 			}
 		}
 	}
+}
+
+func (s Safe) String() string {
+	return fmt.Sprintf("%v", s.Value)
 }
