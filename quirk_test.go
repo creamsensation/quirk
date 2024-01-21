@@ -23,16 +23,16 @@ func TestQuirk(t *testing.T) {
 				t,
 				New(db).Q(
 					`CREATE TABLE IF NOT EXISTS tests (
-    			id serial,
-       		name varchar(255) not null,
-       		lastname varchar(255) not null,
-       		active bool not null default false,
-       		amount float not null default 0,
-       		quantity int not null default 0,
-       		roles varchar[] not null default array[]::varchar[],
-       		note text,
-       		created_at timestamp not null default current_timestamp
-    		)`,
+	    			id serial,
+	       		name varchar(255) not null,
+	       		lastname varchar(255) not null,
+	       		active bool not null default false,
+	       		amount float not null default 0,
+	       		quantity int not null default 0,
+	       		roles varchar[] not null default array[]::varchar[],
+	       		note text,
+	       		created_at timestamp not null default current_timestamp
+	    		)`,
 				).Exec(),
 			)
 		},
@@ -54,7 +54,7 @@ func TestQuirk(t *testing.T) {
 					Q(`INSERT INTO tests`).
 					Q(`(id, name, lastname, active, amount, quantity, roles, note, created_at)`).
 					Q(
-						`VALUES (DEFAULT, :Name, :Lastname, :Active, :Amount, :Quantity, :Roles, :Note, DEFAULT)`, data,
+						`VALUES (DEFAULT, @Name, @Lastname, @Active, @Amount, @Quantity, @Roles, @Note, DEFAULT)`, data,
 					).
 					Q(`RETURNING id`).
 					Exec(&id),
@@ -68,8 +68,8 @@ func TestQuirk(t *testing.T) {
 			assert.Nil(
 				t, New(db).
 					Q(`UPDATE tests`).
-					Q(`SET active = :Active`, data).
-					Q(`WHERE id = :Id`, data).
+					Q(`SET active = @Active`, data).
+					Q(`WHERE id = @Id`, data).
 					Exec(),
 			)
 			active := true
@@ -89,8 +89,8 @@ func TestQuirk(t *testing.T) {
 			assert.Nil(
 				t, New(db).
 					Q(`UPDATE tests`).
-					Q(`SET roles = :Roles`, data).
-					Q(`WHERE id = :Id`, data).
+					Q(`SET roles = @Roles`, data).
+					Q(`WHERE id = @Id`, data).
 					Exec(),
 			)
 			data.Roles = []string{}

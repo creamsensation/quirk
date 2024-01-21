@@ -13,8 +13,12 @@ import (
 )
 
 const (
-	regexParamPattern             = ":[a-zA-Z0-9_]+"
 	regexSpecialCharactersPattern = "[-_.,=&;@/(){}]`"
+)
+
+var (
+	regexParamPattern = "( |,)" + ParamPrefix + "[a-zA-Z0-9_]+"
+	regexParam        = regexp.MustCompile(regexParamPattern)
 )
 
 func CreateTableStructure(fields []Field) string {
@@ -91,8 +95,7 @@ func replaceStringAtIndex(str, substr, newSubstr string, index int) string {
 }
 
 func containsQueryNamedParam(q string) bool {
-	re := regexp.MustCompile(regexParamPattern)
-	for _, item := range re.FindAllString(q, -1) {
+	for _, item := range regexParam.FindAllString(q, -1) {
 		i := strings.Index(q, item)
 		if i == 0 {
 			continue

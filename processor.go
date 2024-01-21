@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	ParamPrefix = ":"
+	ParamPrefix = "@"
 	Placeholder = "?"
 )
 

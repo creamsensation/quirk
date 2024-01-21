@@ -12,7 +12,7 @@ func TestProcessor(t *testing.T) {
 	t.Run(
 		"process named params struct", func(t *testing.T) {
 			q, _ := processNamedParamsStruct(
-				`INSERT INTO posts (name, lastname, vectors) VALUES (:Name, :Lastname, to_tsvector('Daar Walker'))`,
+				`INSERT INTO posts (name, lastname, vectors) VALUES (@Name, @Lastname, to_tsvector('Daar Walker'))`,
 				reflect.ValueOf(
 					test{
 						Name:     "Daar",
