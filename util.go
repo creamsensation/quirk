@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 	"unicode"
-	
+
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -14,6 +14,10 @@ import (
 
 const (
 	regexSpecialCharactersPattern = "[-_.,=&;@/(){}]`"
+)
+
+var (
+	specialCharactersReplacer = regexp.MustCompile(regexSpecialCharactersPattern)
 )
 
 var (
@@ -117,9 +121,8 @@ func latinize(value string) string {
 }
 
 func replaceSpecialCharacters(value string) string {
-	replacer := regexp.MustCompile(regexSpecialCharactersPattern)
 	marksReplacer := strings.NewReplacer("'", "’", "[", "", "]", "")
-	value = replacer.ReplaceAllString(value, " ")
+	value = specialCharactersReplacer.ReplaceAllString(value, " ")
 	value = marksReplacer.Replace(value)
 	return value
 }

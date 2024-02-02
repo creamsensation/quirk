@@ -6,12 +6,13 @@ import (
 )
 
 type test struct {
-	Id       int
-	Name     string
-	Lastname string
-	Active   bool
-	Amount   float64
-	Quantity int
+	Id            int
+	Name          string
+	Lastname      string
+	Active        bool
+	Amount        float64
+	AmountSpecial float64
+	Quantity      int
 	// Roles     Array[string]
 	Roles     []string
 	Note      sql.NullString

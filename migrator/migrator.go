@@ -6,7 +6,7 @@ import (
 	"os"
 	"slices"
 	"time"
-	
+
 	"github.com/creamsensation/quirk"
 )
 
@@ -84,7 +84,7 @@ func (m *migrator) Init() {
 		quirk.New(db).Q(
 			fmt.Sprintf(
 				`CREATE TABLE IF NOT EXISTS %s (
-    id serial,
+    id serial primary key,
     name varchar(255) not null,
     created_at timestamp not null default current_timestamp,
     updated_at timestamp not null default current_timestamp

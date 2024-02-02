@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	
+
 	"github.com/iancoleman/strcase"
 	pg "github.com/lib/pq"
 )
@@ -109,6 +109,7 @@ func (q *Quirk) exec(result ...any) error {
 	}
 	rows, err := q.DB.Query(mergedQueryParts, args...)
 	if err != nil {
+		q.afterQuery(t, mergedQueryParts, args)
 		return err
 	}
 	defer func() {

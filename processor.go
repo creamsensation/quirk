@@ -2,12 +2,12 @@ package quirk
 
 import (
 	"cmp"
-	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
-	
+
 	"github.com/iancoleman/strcase"
 	pg "github.com/lib/pq"
 )
@@ -15,10 +15,17 @@ import (
 const (
 	ParamPrefix = "@"
 	Placeholder = "?"
+
+	tableColCharRegexPattern = `[a-zA-Z0-9_]`
 )
 
-type mapParam struct {
+var (
+	tableColCharRegex = regexp.MustCompile(tableColCharRegexPattern)
+)
+
+type paramSorter struct {
 	index int
+	name  string
 	value any
 }
 
@@ -78,7 +85,7 @@ func processPart(q string, args ...any) (string, []any, error) {
 	resultArgs := make([]any, 0)
 	placeholdersIndexes := getSubstringIndexes(q, Placeholder)
 	if len(placeholdersIndexes) != len(args) {
-		return q, resultArgs, errors.New("placeholders and args count mismatch")
+		return q, resultArgs, ErrorMismatchArgs
 	}
 	for i, arg := range args {
 		switch a := arg.(type) {
@@ -107,19 +114,27 @@ func processPart(q string, args ...any) (string, []any, error) {
 
 func processNamedParamsMap(query string, mapArgRef reflect.Value) (string, []any) {
 	args := make([]any, 0)
-	params := make([]mapParam, 0)
+	params := make([]paramSorter, 0)
 	originQuery := query
 	for _, key := range mapArgRef.MapKeys() {
+		name := strcase.ToSnake(key.String())
+		param := ParamPrefix + name
 		value := mapArgRef.MapIndex(key)
-		param := ParamPrefix + strcase.ToSnake(key.String())
 		if !strings.Contains(query, param) {
 			continue
 		}
-		params = append(params, mapParam{index: strings.Index(originQuery, param), value: value.Interface()})
-		query = strings.Replace(query, param, Placeholder, -1)
+		index := strings.Index(originQuery, param)
+		suitableIndex := findMostSuitableParamIndex(originQuery, param)
+		params = append(params, paramSorter{index: suitableIndex, name: name, value: value.Interface()})
+		if index != suitableIndex {
+			query = replaceStringAtIndex(query, param, Placeholder, findMostSuitableParamIndex(query, param))
+		}
+		if index == suitableIndex {
+			query = strings.Replace(query, param, Placeholder, 1)
+		}
 	}
 	slices.SortFunc(
-		params, func(a, b mapParam) int {
+		params, func(a, b paramSorter) int {
 			return cmp.Compare(a.index, b.index)
 		},
 	)
@@ -131,6 +146,8 @@ func processNamedParamsMap(query string, mapArgRef reflect.Value) (string, []any
 
 func processNamedParamsStruct(query string, structArgRef reflect.Value) (string, []any) {
 	args := make([]any, 0)
+	params := make([]paramSorter, 0)
+	originQuery := query
 	for i := 0; i < structArgRef.NumField(); i++ {
 		field := structArgRef.Field(i)
 		fieldName := structArgRef.Type().Field(i).Name
@@ -138,8 +155,42 @@ func processNamedParamsStruct(query string, structArgRef reflect.Value) (string,
 		if !strings.Contains(query, param) {
 			continue
 		}
-		query = strings.Replace(query, param, Placeholder, -1)
-		args = append(args, field.Interface())
+		index := strings.Index(originQuery, param)
+		suitableIndex := findMostSuitableParamIndex(originQuery, param)
+		params = append(params, paramSorter{index: suitableIndex, name: fieldName, value: field.Interface()})
+		if index != suitableIndex {
+			query = replaceStringAtIndex(query, param, Placeholder, findMostSuitableParamIndex(query, param))
+		}
+		if index == suitableIndex {
+			query = strings.Replace(query, param, Placeholder, 1)
+		}
+	}
+	slices.SortFunc(
+		params, func(a, b paramSorter) int {
+			return cmp.Compare(a.index, b.index)
+		},
+	)
+	for _, item := range params {
+		args = append(args, item.value)
 	}
 	return query, args
+}
+
+func findMostSuitableParamIndex(query, param string) int {
+	qn := len(query)
+	for _, i := range getSubstringIndexes(query, param) {
+		n := len(param)
+		if i+n < qn {
+			nextChar := query[i+n]
+			if query[i:i+n] == param && !tableColCharRegex.MatchString(string(nextChar)) {
+				return i
+			}
+		}
+		if i+n >= qn {
+			if query[i:i+n] == param {
+				return i
+			}
+		}
+	}
+	return -1
 }

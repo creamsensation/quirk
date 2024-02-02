@@ -2,7 +2,7 @@ package quirk
 
 import (
 	"testing"
-	
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,6 +28,7 @@ func TestQuirk(t *testing.T) {
 	       		lastname varchar(255) not null,
 	       		active bool not null default false,
 	       		amount float not null default 0,
+	       		amount_special float not null default 0,
 	       		quantity int not null default 0,
 	       		roles varchar[] not null default array[]::varchar[],
 	       		note text,
@@ -41,20 +42,22 @@ func TestQuirk(t *testing.T) {
 		"insert with struct and names params", func(t *testing.T) {
 			id := 0
 			data := test{
-				Name:     "Dominik",
-				Lastname: "Linduska",
-				Active:   true,
-				Amount:   999.99,
-				Quantity: 55,
-				Roles:    []string{"owner", "admin"},
-				Note:     NullString("go go go"),
+				Name:          "Dominik",
+				Lastname:      "Linduska",
+				Active:        true,
+				Amount:        999.99,
+				AmountSpecial: 999.99,
+				Quantity:      55,
+				Roles:         []string{"owner", "admin"},
+				Note:          NullString("go go go"),
 			}
 			assert.Nil(
 				t, New(db).
 					Q(`INSERT INTO tests`).
-					Q(`(id, name, lastname, active, amount, quantity, roles, note, created_at)`).
+					Q(`(id, name, lastname, active, amount, amount_special, quantity, roles, note, created_at)`).
 					Q(
-						`VALUES (DEFAULT, @Name, @Lastname, @Active, @Amount, @Quantity, @Roles, @Note, DEFAULT)`, data,
+						`VALUES (DEFAULT, @Name, @Lastname, @Active, @Amount, @AmountSpecial, @Quantity, @Roles, @Note, DEFAULT)`,
+						data,
 					).
 					Q(`RETURNING id`).
 					Exec(&id),
