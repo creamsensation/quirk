@@ -7,23 +7,25 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-
-	"github.com/iancoleman/strcase"
+	
 	pg "github.com/lib/pq"
 )
 
 const (
 	ParamPrefix = "@"
 	Placeholder = "?"
-
-	tableColCharRegexPattern = `[a-zA-Z0-9_]`
 )
 
 var (
-	tableColCharRegex = regexp.MustCompile(tableColCharRegexPattern)
+	tableColCharMatcher   = regexp.MustCompile(`[a-zA-Z0-9_]`)
+	argPlaceholderMatcher = regexp.MustCompile(`\(\$[0-9]+\)`)
 )
 
-type paramSorter struct {
+var (
+	safeType = reflect.TypeOf(Safe{})
+)
+
+type indexedArg struct {
 	index int
 	name  string
 	value any
@@ -32,157 +34,91 @@ type paramSorter struct {
 func processQueryParts(q *Quirk) (string, []any, error) {
 	parts := make([]string, 0)
 	args := make([]any, 0)
+	pgi := 1
 	for _, p := range q.parts {
-		partArgs := make([]any, 0)
-		containsNamedParams := containsQueryNamedParam(p.query)
-		if containsNamedParams && len(p.args) > 0 {
-			argRef := reflect.ValueOf(p.args[0])
-			switch argRef.Kind() {
-			case reflect.Map:
-				processedQuery, processedArgs := processNamedParamsMap(p.query, argRef)
-				processedQuery, processedArgs, err := processPart(processedQuery, processedArgs...)
-				if err != nil {
-					return "", args, err
-				}
-				p.query = processedQuery
-				partArgs = append(partArgs, processedArgs...)
-			case reflect.Struct:
-				processedQuery, processedArgs := processNamedParamsStruct(p.query, argRef)
-				processedQuery, processedArgs, err := processPart(processedQuery, processedArgs...)
-				if err != nil {
-					return "", args, err
-				}
-				p.query = processedQuery
-				partArgs = append(partArgs, processedArgs...)
+		existingNames := make([]string, 0)
+		for argKey := range p.arg {
+			if !existsNameInQuery(argKey, p.query) {
+				continue
 			}
-			parts = append(parts, p.query)
+			existingNames = append(existingNames, argKey)
 		}
-		if !containsNamedParams && len(p.args) > 0 {
-			processedQuery, processedArgs, err := processPart(p.query, p.args...)
-			if err != nil {
-				return "", args, err
+		argLen := len(existingNames)
+		partArgs := make([]indexedArg, argLen)
+		i := 0
+		for argKey, argValue := range p.arg {
+			if !slices.Contains(existingNames, argKey) {
+				continue
 			}
-			partArgs = append(partArgs, processedArgs...)
-			parts = append(parts, processedQuery)
+			partArgs[i] = indexedArg{
+				index: strings.Index(p.query, ParamPrefix+argKey),
+				name:  argKey,
+				value: argValue,
+			}
+			i++
 		}
-		if len(p.args) == 0 {
-			parts = append(parts, p.query)
+		slices.SortFunc(
+			partArgs, func(a, b indexedArg) int {
+				return cmp.Compare(a.index, b.index)
+			},
+		)
+		for _, partArg := range partArgs {
+			argValueType := reflect.TypeOf(partArg.value)
+			isSafe := argValueType == safeType
+			isSlice := argValueType.Kind() == reflect.Slice
+			name := ParamPrefix + partArg.name
+			if !isSafe {
+				p.query = replaceStringAtIndex(p.query, name, fmt.Sprintf("$%d", pgi), findParamIndex(p.query, name))
+				pgi++
+			}
+			if isSafe {
+				p.query = replaceStringAtIndex(p.query, name, fmt.Sprintf("%v", partArg.value), findParamIndex(p.query, name))
+			}
+			if isSlice {
+				partArg.value = pg.Array(partArg.value)
+			}
+			if !isSafe {
+				args = append(args, partArg.value)
+			}
 		}
-		args = append(args, partArgs...)
+		sliceExists := false
+		for _, partArg := range partArgs {
+			if reflect.TypeOf(partArg.value).Kind() == reflect.Slice {
+				sliceExists = true
+				break
+			}
+		}
+		if sliceExists {
+			p.query = processQueryInOperator(p.query)
+		}
+		parts = append(parts, p.query)
 	}
-	mergedQuery := strings.Join(parts, " ")
-	placeholdersCounts := strings.Count(mergedQuery, Placeholder)
-	for i := 1; i <= placeholdersCounts; i++ {
-		switch q.driverName {
-		case Postgres:
-			mergedQuery = strings.Replace(mergedQuery, Placeholder, fmt.Sprintf("$%d", i), 1)
-		}
-	}
-	return mergedQuery, args, nil
+	return strings.Join(parts, " "), args, nil
 }
 
-func processPart(q string, args ...any) (string, []any, error) {
-	resultArgs := make([]any, 0)
-	placeholdersIndexes := getSubstringIndexes(q, Placeholder)
-	if len(placeholdersIndexes) != len(args) {
-		return q, resultArgs, ErrorMismatchArgs
+func processQueryInOperator(q string) string {
+	if strings.Contains(strings.ToLower(q), " in ") {
+		q = strings.Replace(strings.ToLower(q), " in ", " = ", 1)
 	}
-	for i, arg := range args {
-		switch a := arg.(type) {
-		case Safe:
-			q = replaceStringAtIndex(
-				q, Placeholder, fmt.Sprintf("%v", a.Value), placeholdersIndexes[i],
-			)
-			continue
-		}
-		argRef := reflect.ValueOf(arg)
-		switch argRef.Kind() {
-		case reflect.Slice:
-			if strings.Contains(strings.ToLower(q), " in ") {
-				q = strings.Replace(strings.ToLower(q), " in ", " = ", 1)
-			}
-			if strings.Contains(strings.ToLower(q), "(?)") {
-				q = strings.Replace(strings.ToLower(q), "(?)", "ANY(?)", 1)
-			}
-			resultArgs = append(resultArgs, pg.Array(arg))
-		default:
-			resultArgs = append(resultArgs, arg)
-		}
+	if argPlaceholderMatcher.MatchString(q) {
+		q = strings.Replace(q, "($", "ANY($", 1)
 	}
-	return q, resultArgs, nil
+	return q
 }
 
-func processNamedParamsMap(query string, mapArgRef reflect.Value) (string, []any) {
-	args := make([]any, 0)
-	params := make([]paramSorter, 0)
-	originQuery := query
-	for _, key := range mapArgRef.MapKeys() {
-		name := strcase.ToSnake(key.String())
-		param := ParamPrefix + name
-		value := mapArgRef.MapIndex(key)
-		if !strings.Contains(query, param) {
-			continue
-		}
-		index := strings.Index(originQuery, param)
-		suitableIndex := findMostSuitableParamIndex(originQuery, param)
-		params = append(params, paramSorter{index: suitableIndex, name: name, value: value.Interface()})
-		if index != suitableIndex {
-			query = replaceStringAtIndex(query, param, Placeholder, findMostSuitableParamIndex(query, param))
-		}
-		if index == suitableIndex {
-			query = strings.Replace(query, param, Placeholder, 1)
-		}
-	}
-	slices.SortFunc(
-		params, func(a, b paramSorter) int {
-			return cmp.Compare(a.index, b.index)
-		},
+func existsNameInQuery(name, query string) bool {
+	return regexp.MustCompile(regexp.QuoteMeta(ParamPrefix+name)+`([ ,)])`).MatchString(query) || strings.HasSuffix(
+		query, ParamPrefix+name,
 	)
-	for _, item := range params {
-		args = append(args, item.value)
-	}
-	return query, args
 }
 
-func processNamedParamsStruct(query string, structArgRef reflect.Value) (string, []any) {
-	args := make([]any, 0)
-	params := make([]paramSorter, 0)
-	originQuery := query
-	for i := 0; i < structArgRef.NumField(); i++ {
-		field := structArgRef.Field(i)
-		fieldName := structArgRef.Type().Field(i).Name
-		param := ParamPrefix + fieldName
-		if !strings.Contains(query, param) {
-			continue
-		}
-		index := strings.Index(originQuery, param)
-		suitableIndex := findMostSuitableParamIndex(originQuery, param)
-		params = append(params, paramSorter{index: suitableIndex, name: fieldName, value: field.Interface()})
-		if index != suitableIndex {
-			query = replaceStringAtIndex(query, param, Placeholder, findMostSuitableParamIndex(query, param))
-		}
-		if index == suitableIndex {
-			query = strings.Replace(query, param, Placeholder, 1)
-		}
-	}
-	slices.SortFunc(
-		params, func(a, b paramSorter) int {
-			return cmp.Compare(a.index, b.index)
-		},
-	)
-	for _, item := range params {
-		args = append(args, item.value)
-	}
-	return query, args
-}
-
-func findMostSuitableParamIndex(query, param string) int {
+func findParamIndex(query, param string) int {
 	qn := len(query)
 	for _, i := range getSubstringIndexes(query, param) {
 		n := len(param)
 		if i+n < qn {
 			nextChar := query[i+n]
-			if query[i:i+n] == param && !tableColCharRegex.MatchString(string(nextChar)) {
+			if query[i:i+n] == param && !tableColCharMatcher.MatchString(string(nextChar)) {
 				return i
 			}
 		}

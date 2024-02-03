@@ -10,7 +10,7 @@ func CreateTsVectors(values ...any) Safe {
 	for i, v := range values {
 		result[i] = simplify(fmt.Sprintf("%v", v))
 	}
-	return Safe{fmt.Sprintf("'%s'::tsvector", strings.Join(result, " "))}
+	return Safe{fmt.Sprintf("to_tsvector('simple', '%s')", strings.Join(result, " "))}
 }
 
 func CreateTsQuery(value string) Safe {
@@ -22,5 +22,5 @@ func CreateTsQuery(value string) Safe {
 		}
 		result = append(result, v+":*")
 	}
-	return Safe{fmt.Sprintf("('%s')::tsquery", strings.Join(result, " & "))}
+	return Safe{fmt.Sprintf("to_tsquery('simple', '%s')", strings.Join(result, " & "))}
 }

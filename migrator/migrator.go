@@ -6,7 +6,7 @@ import (
 	"os"
 	"slices"
 	"time"
-
+	
 	"github.com/creamsensation/quirk"
 )
 
@@ -199,10 +199,10 @@ func (m *migrator) insertMigration(name string) {
 		quirk.New(db).
 			Q(
 				fmt.Sprintf(
-					`INSERT INTO %s (id, name, created_at, updated_at) VALUES (DEFAULT, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+					`INSERT INTO %s (id, name, created_at, updated_at) VALUES (DEFAULT, @name, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 					migrationsTable,
 				),
-				name,
+				quirk.Map{"name": name},
 			).
 			MustExec()
 	}
@@ -210,6 +210,8 @@ func (m *migrator) insertMigration(name string) {
 
 func (m *migrator) deleteMigration(name string) {
 	for _, db := range m.databases {
-		quirk.New(db).Q(fmt.Sprintf(`DELETE FROM %s WHERE name = ?`, migrationsTable), name).MustExec()
+		quirk.New(db).Q(
+			fmt.Sprintf(`DELETE FROM %s WHERE name = @name`, migrationsTable), quirk.Map{"name": name},
+		).MustExec()
 	}
 }

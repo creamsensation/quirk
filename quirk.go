@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
+	
 	"github.com/iancoleman/strcase"
 	pg "github.com/lib/pq"
 )
@@ -25,9 +25,11 @@ type Safe struct {
 	Value any
 }
 
+type Map = map[string]any
+
 type queryPart struct {
 	query string
-	args  []any
+	arg   Map
 }
 
 const (
@@ -47,8 +49,12 @@ func New(db *DB) *Quirk {
 	return q
 }
 
-func (q *Quirk) Q(query string, args ...any) *Quirk {
-	q.parts = append(q.parts, queryPart{query, args})
+func (q *Quirk) Q(query string, arg ...Map) *Quirk {
+	qa := make(Map)
+	if len(arg) > 0 {
+		qa = arg[0]
+	}
+	q.parts = append(q.parts, queryPart{query, qa})
 	return q
 }
 
@@ -61,11 +67,11 @@ func (q *Quirk) WhereExists() bool {
 	return false
 }
 
-func (q *Quirk) If(condition bool, query string, args ...any) *Quirk {
+func (q *Quirk) If(condition bool, query string, arg ...Map) *Quirk {
 	if !condition {
 		return q
 	}
-	q.Q(query, args...)
+	q.Q(query, arg...)
 	return q
 }
 
