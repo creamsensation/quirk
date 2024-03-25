@@ -1,8 +1,9 @@
 package quirk
 
 import (
+	"database/sql"
 	"testing"
-	
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,6 +42,7 @@ func TestQuirk(t *testing.T) {
 	t.Run(
 		"insert", func(t *testing.T) {
 			id := 0
+			note := "go go go"
 			data := Map{
 				"name":           "Dominik",
 				"lastname":       "Linduska",
@@ -49,7 +51,7 @@ func TestQuirk(t *testing.T) {
 				"amount-special": 999.99,
 				"quantity":       55,
 				"roles":          []string{"owner", "admin"},
-				"note":           NullString("go go go"),
+				"note":           sql.Null[string]{V: note, Valid: true},
 			}
 			assert.Nil(
 				t, New(db).
@@ -62,6 +64,9 @@ func TestQuirk(t *testing.T) {
 					Q(`RETURNING id`).
 					Exec(&id),
 			)
+			testResult := make(Map)
+			New(db).Q(`SELECT * FROM tests WHERE id = @id`, Map{"id": id}).MustExec(&testResult)
+			assert.Equal(t, note, testResult["note"])
 			assert.Equal(t, 1, id, "should create row and return new id")
 		},
 	)

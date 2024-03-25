@@ -7,7 +7,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	
+	"time"
+
 	pg "github.com/lib/pq"
 )
 
@@ -66,6 +67,7 @@ func processQueryParts(q *Quirk) (string, []any, error) {
 			argValueType := reflect.TypeOf(partArg.value)
 			isSafe := argValueType == safeType
 			isSlice := argValueType.Kind() == reflect.Slice
+			isMap := argValueType.Kind() == reflect.Map
 			name := ParamPrefix + partArg.name
 			if !isSafe {
 				p.query = replaceStringAtIndex(p.query, name, fmt.Sprintf("$%d", pgi), findParamIndex(p.query, name))
@@ -76,6 +78,9 @@ func processQueryParts(q *Quirk) (string, []any, error) {
 			}
 			if isSlice {
 				partArg.value = pg.Array(partArg.value)
+			}
+			if isMap {
+				partArg.value = transformMapToJsonb(partArg.value)
 			}
 			if !isSafe {
 				args = append(args, partArg.value)
@@ -94,6 +99,23 @@ func processQueryParts(q *Quirk) (string, []any, error) {
 		parts = append(parts, p.query)
 	}
 	return strings.Join(parts, " "), args, nil
+}
+
+func transformMapToJsonb(value any) any {
+	switch m := value.(type) {
+	case map[string]string:
+		return MapToJsonb[string](m)
+	case map[string]int:
+		return MapToJsonb[int](m)
+	case map[string]float64:
+		return MapToJsonb[float64](m)
+	case map[string]bool:
+		return MapToJsonb[bool](m)
+	case map[string]time.Time:
+		return MapToJsonb[time.Time](m)
+	default:
+		return nil
+	}
 }
 
 func processQueryInOperator(q string) string {

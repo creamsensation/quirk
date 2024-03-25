@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	
+
 	_ "github.com/lib/pq"
 )
 
@@ -44,6 +44,14 @@ func Connect(configs ...Config) (*DB, error) {
 	db, err := Open(driver, dataSource)
 	db.log = log
 	return db, err
+}
+
+func MustConnect(configs ...Config) *DB {
+	db, err := Connect(configs...)
+	if err != nil {
+		panic(err)
+	}
+	return db
 }
 
 func createConnectionDataSource(configs ...Config) (string, string, bool, error) {

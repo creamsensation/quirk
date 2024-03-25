@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	
+
 	"github.com/iancoleman/strcase"
 	pg "github.com/lib/pq"
 )
@@ -25,7 +25,7 @@ type Safe struct {
 	Value any
 }
 
-type Map = map[string]any
+type Map map[string]any
 
 type queryPart struct {
 	query string
@@ -59,11 +59,22 @@ func (q *Quirk) Q(query string, arg ...Map) *Quirk {
 }
 
 func (q *Quirk) WhereExists() bool {
-	for _, p := range q.parts {
-		if whereFinder.MatchString(strings.ToLower(p.query)) {
+	n := len(q.parts)
+	if n > 0 {
+		if whereFinder.MatchString(strings.ToLower(q.parts[n-1].query)) {
 			return true
 		}
 	}
+	if n > 1 {
+		if whereFinder.MatchString(strings.ToLower(q.parts[n-2].query)) {
+			return true
+		}
+	}
+	// for _, p := range q.parts {
+	// 	if whereFinder.MatchString(strings.ToLower(p.query)) {
+	// 		return true
+	// 	}
+	// }
 	return false
 }
 

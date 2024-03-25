@@ -6,7 +6,7 @@ import (
 	"os"
 	"slices"
 	"time"
-	
+
 	"github.com/creamsensation/quirk"
 )
 
@@ -199,7 +199,7 @@ func (m *migrator) insertMigration(name string) {
 		quirk.New(db).
 			Q(
 				fmt.Sprintf(
-					`INSERT INTO %s (id, name, created_at, updated_at) VALUES (DEFAULT, @name, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+					`INSERT INTO %s (id, name, created_at, updated_at) VALUES (DEFAULT, @name, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id`,
 					migrationsTable,
 				),
 				quirk.Map{"name": name},

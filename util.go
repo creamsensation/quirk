@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 	"unicode"
-	
+
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -127,13 +127,13 @@ func replaceSpecialCharacters(value string) string {
 	return value
 }
 
-func simplify(value string) string {
+func Normalize(value string) string {
 	value = strings.ToLower(value)
 	value = latinize(value)
 	value = replaceSpecialCharacters(value)
 	return value
 }
 
-func webalize(column string) string {
-	return fmt.Sprintf("unaccent(lower(replace(%s, ' ', '-')))", column)
+func RemoveAccents(value string) string {
+	return fmt.Sprintf("unaccent(lower(replace(%s, ' ', '-')))", value)
 }
