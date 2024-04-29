@@ -33,6 +33,10 @@ func wrapConnection(db *sql.DB, driverName string) *DB {
 	}
 }
 
+func (d *DB) Q(query string, arg ...Map) *Quirk {
+	return New(d).Q(query, arg...)
+}
+
 func (d *DB) DriverName() string {
 	return d.driverName
 }
