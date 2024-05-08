@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 	"time"
-
+	
 	pg "github.com/lib/pq"
 )
 
@@ -23,7 +23,7 @@ var (
 )
 
 var (
-	safeType = reflect.TypeOf(Safe{})
+	safeType = reflect.TypeOf(Safe(""))
 )
 
 type indexedArg struct {
@@ -74,7 +74,9 @@ func processQueryParts(q *Quirk) (string, []any, error) {
 				pgi++
 			}
 			if isSafe {
-				p.query = replaceStringAtIndex(p.query, name, fmt.Sprintf("%v", partArg.value), findParamIndex(p.query, name))
+				p.query = replaceStringAtIndex(
+					p.query, name, fmt.Sprintf("%s", string(partArg.value.(Safe))), findParamIndex(p.query, name),
+				)
 			}
 			if isSlice {
 				partArg.value = pg.Array(partArg.value)
@@ -119,17 +121,14 @@ func transformMapToJsonb(value any) any {
 }
 
 func processQueryInOperator(q string) string {
-	if strings.Contains(strings.ToLower(q), " in ") {
-		q = strings.Replace(strings.ToLower(q), " in ", " = ", 1)
-	}
-	if argPlaceholderMatcher.MatchString(q) {
-		q = strings.Replace(q, "($", "ANY($", 1)
+	if strings.Contains(strings.ToLower(q), " in (") {
+		q = strings.ToUpper(strings.Replace(strings.ToLower(q), " in (", " = any(", 1))
 	}
 	return q
 }
 
 func existsNameInQuery(name, query string) bool {
-	return regexp.MustCompile(regexp.QuoteMeta(ParamPrefix+name)+`([ ,)])`).MatchString(query) || strings.HasSuffix(
+	return regexp.MustCompile(regexp.QuoteMeta(ParamPrefix+name)+`([ ,)'])`).MatchString(query) || strings.HasSuffix(
 		query, ParamPrefix+name,
 	)
 }

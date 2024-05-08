@@ -6,17 +6,16 @@ import (
 )
 
 type test struct {
-	Id            int
-	Name          string
-	Lastname      string
-	Active        bool
-	Amount        float64
-	AmountSpecial float64
-	Quantity      int
-	// Roles     Array[string]
-	Roles     []string
-	Note      sql.NullString
-	CreatedAt time.Time
+	Id            int            `db:"id"`
+	Name          string         `db:"name"`
+	Lastname      string         `db:"lastname"`
+	Active        bool           `db:"active"`
+	Amount        float64        `db:"amount"`
+	AmountSpecial float64        `db:"amount_special"`
+	Quantity      int            `db:"quantity"`
+	Roles         []string       `db:"roles"`
+	Note          sql.NullString `db:"note"`
+	CreatedAt     time.Time      `db:"created_at"`
 }
 
 func createConnection() (*DB, error) {
@@ -25,8 +24,8 @@ func createConnection() (*DB, error) {
 		WithHost("localhost"),
 		WithPort(5432),
 		WithDbname("test"),
-		WithUser("cream"),
-		WithPassword("cream"),
+		WithUser("swtp"),
+		WithPassword("swtp"),
 		WithSslDisable(),
 	)
 }

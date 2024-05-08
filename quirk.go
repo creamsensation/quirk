@@ -2,12 +2,11 @@ package quirk
 
 import (
 	"database/sql"
-	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
 	"time"
-
+	
 	"github.com/iancoleman/strcase"
 	pg "github.com/lib/pq"
 )
@@ -21,9 +20,7 @@ type Quirk struct {
 	subscriptions []subscription
 }
 
-type Safe struct {
-	Value any
-}
+type Safe []byte
 
 type Map map[string]any
 
@@ -166,9 +163,12 @@ func (q *Quirk) afterQuery(t time.Time, query string, args []any) {
 func (q *Quirk) scanSingle(rows *sql.Rows, columns []string, result any) {
 	res := reflect.ValueOf(result)
 	rv := reflect.ValueOf(result)
+	rt := reflect.TypeOf(result)
 	resKind := rv.Elem().Type().Kind()
 	rvKind := rv.Elem().Type().Kind()
+	elem := rt.Elem()
 	if rvKind == reflect.Slice {
+		elem = elem.Elem()
 		rv = reflect.New(rv.Elem().Type().Elem())
 		rvKind = rv.Elem().Type().Kind()
 	}
@@ -187,6 +187,7 @@ func (q *Quirk) scanSingle(rows *sql.Rows, columns []string, result any) {
 			for i := 0; i < rv.Elem().NumField(); i++ {
 				field := rv.Elem().Field(i)
 				fieldName := rv.Elem().Type().Field(i).Name
+				fieldDbName := elem.Field(i).Tag.Get("db")
 				exported := false
 				for _, vf := range visibleFields {
 					if vf.Name == fieldName && vf.IsExported() {
@@ -196,11 +197,18 @@ func (q *Quirk) scanSingle(rows *sql.Rows, columns []string, result any) {
 				if !exported {
 					continue
 				}
+				fieldDbNameExists := len(fieldDbName) > 0
+				if !fieldDbNameExists {
+					fieldName = strcase.ToSnake(fieldName)
+				}
+				if fieldDbNameExists {
+					fieldName = fieldDbName
+				}
 				switch field.Type().Kind() {
 				case reflect.Slice:
-					model[strcase.ToSnake(fieldName)] = pg.Array(field.Addr().Interface())
+					model[fieldName] = pg.Array(field.Addr().Interface())
 				default:
-					model[strcase.ToSnake(fieldName)] = field.Addr().Interface()
+					model[fieldName] = field.Addr().Interface()
 				}
 			}
 			for i, c := range columns {
@@ -251,8 +259,4 @@ func (q *Quirk) scanMultiple(rows *sql.Rows, result ...any) {
 			}
 		}
 	}
-}
-
-func (s Safe) String() string {
-	return fmt.Sprintf("%v", s.Value)
 }

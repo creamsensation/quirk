@@ -3,7 +3,7 @@ package quirk
 import (
 	"database/sql"
 	"testing"
-
+	
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,6 +33,7 @@ func TestQuirk(t *testing.T) {
 	       		quantity int not null default 0,
 	       		roles varchar[] not null default array[]::varchar[],
 	       		note text,
+	       		vectors tsvector not null default '',
 	       		created_at timestamp not null default current_timestamp
 	    		)`,
 				).Exec(),
@@ -52,13 +53,14 @@ func TestQuirk(t *testing.T) {
 				"quantity":       55,
 				"roles":          []string{"owner", "admin"},
 				"note":           sql.Null[string]{V: note, Valid: true},
+				"vectors":        CreateTsVector("Dominik", "Linduska"),
 			}
 			assert.Nil(
 				t, New(db).
 					Q(`INSERT INTO tests`).
-					Q(`(id, name, lastname, active, amount, amount_special, quantity, roles, note, created_at)`).
+					Q(`(id, name, lastname, active, amount, amount_special, quantity, roles, note, vectors, created_at)`).
 					Q(
-						`VALUES (DEFAULT, @name, @lastname, @active, @amount, @amount-special, @quantity, @roles, @note, DEFAULT)`,
+						`VALUES (DEFAULT, @name, @lastname, @active, @amount, @amount-special, @quantity, @roles, @note, to_tsvector(@vectors), DEFAULT)`,
 						data,
 					).
 					Q(`RETURNING id`).
@@ -68,6 +70,21 @@ func TestQuirk(t *testing.T) {
 			New(db).Q(`SELECT * FROM tests WHERE id = @id`, Map{"id": id}).MustExec(&testResult)
 			assert.Equal(t, note, testResult["note"])
 			assert.Equal(t, 1, id, "should create row and return new id")
+			
+			fulltextResult := make(Map)
+			New(db).Q(
+				`SELECT * FROM tests WHERE vectors @@ to_tsquery(@query)`, Map{"query": CreateTsQuery("linduska")},
+			).MustExec(&fulltextResult)
+			assert.Equal(t, int64(1), fulltextResult["id"])
+		},
+	)
+	t.Run(
+		"scan with struct", func(t *testing.T) {
+			testResult := new(test)
+			New(db).Q(`SELECT * FROM tests WHERE id = @id`, Map{"id": 1}).MustExec(testResult)
+			assert.Equal(t, 1, testResult.Id)
+			assert.Equal(t, "Dominik", testResult.Name)
+			assert.Equal(t, "Linduska", testResult.Lastname)
 		},
 	)
 	t.Run(

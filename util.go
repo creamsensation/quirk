@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 	"unicode"
-
+	
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -23,6 +23,10 @@ var (
 var (
 	regexParamPattern = "( |,)" + ParamPrefix + "[a-zA-Z0-9_]+"
 	regexParam        = regexp.MustCompile(regexParamPattern)
+)
+
+var (
+	escaper = strings.NewReplacer("`", "", "\"", "", "'", "")
 )
 
 func CreateTableStructure(fields []Field) string {
@@ -121,8 +125,9 @@ func latinize(value string) string {
 }
 
 func replaceSpecialCharacters(value string) string {
-	marksReplacer := strings.NewReplacer("'", "’", "[", "", "]", "")
-	value = specialCharactersReplacer.ReplaceAllString(value, " ")
+	replacer := regexp.MustCompile(`[,-/#!$%^&*;:{}=\-_~()@]`)
+	marksReplacer := strings.NewReplacer("'", "’")
+	value = replacer.ReplaceAllString(value, " ")
 	value = marksReplacer.Replace(value)
 	return value
 }
@@ -136,4 +141,8 @@ func Normalize(value string) string {
 
 func RemoveAccents(value string) string {
 	return fmt.Sprintf("unaccent(lower(replace(%s, ' ', '-')))", value)
+}
+
+func Escape(value string) string {
+	return escaper.Replace(value)
 }
